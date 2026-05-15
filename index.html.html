@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clínica SACITEB Perú S.A.C.</title>
+    <link rel="icon" type="image/png" href="logo.png">
+    
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-storage.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.0/xlsx.full.min.js"></script>
+    <script src="https://unpkg.com/html5-qrcode"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+
+    <style>
+        :root { --primary: #003366; --danger: #ff4757; --success: #2ecc71; --warning: #f1c40f; --accent: #3498db; }
+        body { font-family: 'Segoe UI', sans-serif; background: #f4f7f6; margin: 0; padding: 0; color: #333; }
+        header { background: white; text-align: center; padding: 15px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .container { max-width: 500px; margin: auto; padding: 20px; }
+        .card { background: white; padding: 20px; border-radius: 20px; margin-bottom: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); border: 1px solid #eee;}
+        
+        h3 { margin-top: 0; font-size: 1.1em; color: var(--primary); display: flex; align-items: center; gap: 8px; }
+        label { font-size: 12px; color: #666; font-weight: bold; display: block; margin-top: 10px; }
+        input, select, button, textarea { width: 100%; padding: 12px; margin: 5px 0 10px 0; border-radius: 10px; border: 1px solid #ddd; box-sizing: border-box; font-size: 14px; }
+        
+        button { font-weight: bold; cursor: pointer; border: none; color: white; transition: 0.3s; }
+        .btn-reg { background: var(--primary); }
+        .btn-gasto { background: var(--danger); }
+        .btn-admin { background: #333; margin-bottom: 10px; }
+        .btn-scan { background: #673ab7; margin-bottom: 15px; }
+
+        /* Lista de Pacientes */
+        ul { list-style: none; padding: 0; }
+        li { background: #fff; padding: 15px; border-radius: 15px; margin-bottom: 10px; border: 1px solid #eee; position: relative; }
+        .row-paciente { display: flex; justify-content: space-between; align-items: start; cursor: pointer; padding-top: 5px;}
+        .info-p { flex: 1; }
+        
+        .status-badge { font-size: 10px; padding: 3px 8px; border-radius: 20px; text-transform: uppercase; font-weight: bold; margin-bottom: 5px; display: inline-block; }
+        .status-pendiente { background: #fff3cd; color: #856404; }
+        .status-atendido { background: #d4edda; color: #155724; }
+        
+        .saldo-tag { font-size: 11px; padding: 3px 6px; border-radius: 5px; font-weight: bold; float: right;}
+        .debe { background: #ffebee; color: #c62828; border: 1px solid #ffcdd2;}
+
+        .monto-text { font-weight: bold; color: var(--primary); font-size: 16px; }
+        .hora-tag { background: #e3f2fd; color: #007bff; padding: 2px 6px; border-radius: 5px; font-size: 11px; font-weight: bold; text-transform: uppercase; }
+        
+        /* Botones de acción */
+        .actions { display: flex; gap: 8px; margin-top: 10px; border-top: 1px solid #f8f9fa; padding-top: 10px; }
+        .btn-action { width: auto; padding: 8px 12px; font-size: 12px; margin: 0; border-radius: 8px; }
+        .btn-ws { background: #25d366; }
+        .btn-check { background: var(--success); }
+        .btn-edit { background: var(--warning); color: #333; }
+        .btn-del { background: var(--danger); }
+
+        /* PANEL ADMIN */
+        #panel-admin { display: none; background: #f1f8e9; border: 2px solid var(--success); }
+        .master-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px; }
+        .stat-box { background: white; padding: 10px; border-radius: 10px; text-align: center; border: 1px solid #ddd; }
+        .stat-box small { color: #666; font-size: 11px; }
+        .stat-box div { font-weight: bold; font-size: 18px; }
+
+        /* MODAL */
+        .modal { display: none; position: fixed; z-index: 100; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); overflow-y: auto; }
+        .modal-content { background: #fff; margin: 5% auto; width: 90%; max-width: 450px; border-radius: 25px; padding: 20px; position: relative; animation: slideDown 0.3s; }
+        @keyframes slideDown { from {transform: translateY(-50px); opacity: 0;} to {transform: translateY(0); opacity: 1;} }
+        .close { position: absolute; right: 20px; top: 15px; font-size: 24px; color: #999; cursor: pointer; }
+
+        .historia-item { background: #f9f9f9; padding: 10px; border-radius: 10px; margin-bottom: 8px; border-left: 4px solid var(--accent); font-size: 13px; position: relative; }
+        
+        /* Estilo para las imágenes subidas */
+        .img-paciente { width: 100%; border-radius: 15px; margin-top: 10px; border: 2px solid #eee; }
+        #reader { width: 100%; border-radius: 15px; overflow: hidden; margin-bottom: 10px; }
+
+        #receta-print { display: none; padding: 40px; background: white; }
+        @media print { body * { display: none; } #receta-print { display: block; } }
+    </style>
+</head>
+<body>
+
+    <div id="pantalla-login" style="background:var(--primary); height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center;">
+        <img src="logo.png" style="width:130px; margin-bottom:20px;">
+        <div style="background:white; padding:30px; border-radius:20px; width:85%; max-width:300px;">
+            <input type="text" id="user" placeholder="Usuario">
+            <input type="password" id="pass" placeholder="Contraseña">
+            <button class="btn-reg" onclick="validarLogin()">INGRESAR</button>
+        </div>
+    </div>
+
+    <div id="app" style="display:none;">
+        <header><img src="logo.png" style="height:50px;"></header>
+        
+        <div class="container">
+            <button class="btn-scan" onclick="toggleScanner()"><i class="fa fa-qrcode"></i> ESCANEAR CÓDIGO</button>
+            <div id="reader" style="display:none;"></div>
+
+            <button class="btn-admin" onclick="verPanelAdmin()">🔐 PANEL DE REGISTRO</button>
+
+            <div id="panel-admin" class="card">
+                <h3>👑 Registro de Ganancias y Gastos</h3>
+                <div class="master-stats">
+                    <div class="stat-box"><small>INGRESOS HOY</small><div id="m-ingresos" style="color:green;">S/. 0</div></div>
+                    <div class="stat-box"><small>GASTOS HOY</small><div id="m-gastos" style="color:red;">S/. 0</div></div>
+                    <div class="stat-box" style="grid-column: span 2;"><small>GANANCIA NETA</small><div id="m-total" style="font-size:24px;">S/. 0</div></div>
+                </div>
+                <ul id="listaGastosMaster" style="max-height: 200px; overflow-y: auto;"></ul>
+            </div>
+
+            <div class="card">
+                <h3>👤 Nueva Cita</h3>
+                <input type="text" id="nombre" placeholder="Nombre del Paciente">
+                
+                <div style="display:flex; gap:10px;">
+                    <div style="flex:1;"><label>Costo Total S/.</label><input type="number" id="costoTotal" placeholder="150"></div>
+                    <div style="flex:1;"><label>Adelanto Hoy S/.</label><input type="number" id="adelanto" placeholder="50"></div>
+                </div>
+
+                <input type="text" id="whatsapp" placeholder="WhatsApp">
+                <input type="text" id="direccion" placeholder="Dirección">
+                
+                <div style="display:flex; gap:10px;">
+                    <div style="flex:1;"><label>Fecha</label><input type="date" id="fechaCita"></div>
+                    <div style="flex:1;"><label>Hora</label><input type="time" id="horaCita"></div>
+                </div>
+
+                <label>Plan</label>
+                <select id="plan">
+                    <option value="Plan Regular">Plan Regular</option>
+                    <option value="A Domicilio">A Domicilio</option>
+                    <option value="Control Plus">Control Plus</option>
+                    <option value="En Local">En Local</option>
+                </select>
+                
+                <button class="btn-reg" onclick="registrarPaciente()">GUARDAR PACIENTE</button>
+                
+                <h4 style="border-bottom: 1px solid #eee; padding-bottom: 5px;">Pacientes de Hoy (<span id="txtFechaHoy"></span>):</h4>
+                <ul id="listaPacientes"></ul>
+            </div>
+        </div>
+    </div>
+
+    <div id="modalFicha" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="cerrarModal()">&times;</span>
+            <h2 id="f-nombre" style="margin-bottom:5px; color:var(--primary);"></h2>
+            
+            <div id="cont-foto">
+                <img id="f-foto" class="img-paciente" src="" style="display:none;">
+                <label><i class="fa fa-camera"></i> Añadir Imagen / Foto</label>
+                <input type="file" id="inputFoto" accept="image/*" onchange="subirImagen()">
+            </div>
+
+            <hr>
+            <div id="f-saldos" style="background:#f1f1f1; padding:10px; border-radius:10px; margin-bottom:15px; font-weight:bold; font-size:14px;"></div>
+
+            <h3><i class="fa fa-notes-medical"></i> Historia Clínica</h3>
+            <div id="historial-lista" style="max-height:150px; overflow-y:auto; margin-bottom:10px;"></div>
+            <textarea id="nuevaNota" placeholder="Notas médicas..." rows="2"></textarea>
+            <button class="btn-reg" style="background:var(--accent); font-size:12px;" onclick="guardarHistoria()">GUARDAR NOTA</button>
+
+            <button class="btn-reg" style="background:#000; margin-top:10px;" onclick="imprimirReceta()">🖨️ IMPRIMIR RECETA</button>
+        </div>
+    </div>
+
+    <div id="receta-print">
+        <center>
+            <img src="logo.png" style="width:100px;"><br>
+            <h2 style="margin:0;">Clínica SACITEB Perú S.A.C.</h2>
+            <hr>
+        </center>
+        <p><strong>Paciente:</strong> <span id="rp-nombre"></span></p>
+        <p><strong>Fecha:</strong> <span id="rp-fecha"></span></p>
+        <div style="border: 1px solid #000; padding: 20px; min-height: 300px; margin-top:20px;">
+            <p id="rp-contenido" style="white-space: pre-wrap;"></p>
+        </div>
+    </div>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyAtLqn0DU7QSs67XEX77OvTduGFo5uLZWE",
+            authDomain: "clinicasaciteb.firebaseapp.com",
+            projectId: "clinicasaciteb",
+            storageBucket: "clinicasaciteb.appspot.com", // Asegúrate que termine en .appspot.com
+            messagingSenderId: "516216414579",
+            appId: "1:516216414579:web:1571fead638c81b13aa506"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        const storage = firebase.storage();
+        
+        let usuarioActual = "";
+        let pacienteSeleccionadoId = "";
+        let html5QrCode;
+
+        function getHoy() { return new Date().toLocaleDateString('es-PE'); }
+        document.getElementById('txtFechaHoy').innerText = getHoy();
+
+        async function validarLogin() {
+            const u = document.getElementById('user').value.trim();
+            const p = document.getElementById('pass').value.trim();
+            const snap = await db.collection("usuarios").where("usuario", "==", u).get();
+            if(!snap.empty) {
+                let ok = false; snap.forEach(doc => { if(doc.data().clave == p) ok = true; });
+                if(ok) { usuarioActual = u; document.getElementById('pantalla-login').style.display='none'; document.getElementById('app').style.display='block'; cargarDatos(); }
+            } else alert("Usuario no encontrado");
+        }
+
+        async function registrarPaciente() {
+            const nom = document.getElementById('nombre').value;
+            if(!nom) return alert("Nombre obligatorio");
+            await db.collection("pacientes").add({
+                nombre: nom, 
+                costoTotal: Number(document.getElementById('costoTotal').value) || 0,
+                adelanto: Number(document.getElementById('adelanto').value) || 0,
+                whatsapp: document.getElementById('whatsapp').value,
+                direccion: document.getElementById('direccion').value,
+                fechaCita: document.getElementById('fechaCita').value,
+                hCita: document.getElementById('horaCita').value,
+                plan: document.getElementById('plan').value,
+                status: "Pendiente",
+                fechaRegistro: getHoy(), 
+                creado: Date.now()
+            });
+            document.getElementById('nombre').value = "";
+        }
+
+        function cargarDatos() {
+            // LISTA DE PACIENTES: REINICIO DIARIO (Solo muestra los de hoy)
+            db.collection("pacientes")
+              .where("fechaRegistro", "==", getHoy())
+              .orderBy("creado", "desc")
+              .onSnapshot(snap => {
+                const lista = document.getElementById("listaPacientes");
+                lista.innerHTML = ""; let ingHoy = 0;
+                snap.forEach(doc => {
+                    const p = doc.data(); const id = doc.id;
+                    const saldo = p.costoTotal - p.adelanto;
+                    ingHoy += (Number(p.adelanto) || 0);
+                    
+                    lista.innerHTML += `
+                        <li>
+                            <div class="row-paciente" onclick="abrirFicha('${id}')">
+                                <div class="info-p">
+                                    <span class="status-badge status-${p.status.toLowerCase()}">${p.status}</span>
+                                    ${saldo > 0 ? `<span class="saldo-tag debe">DEBE S/. ${saldo.toFixed(0)}</span>` : ''}
+                                    <br><b>${p.nombre}</b><br>
+                                    <small>${p.plan} | ${p.hCita || ''}</small>
+                                </div>
+                                <span class="monto-text">S/. ${p.adelanto.toFixed(0)}</span>
+                            </div>
+                        </li>`;
+                });
+                actualizarBalances(ingHoy, null);
+            });
+
+            // GASTOS GLOBALES (SIN DECIMALES)
+            db.collection("gastos").where("fecha", "==", getHoy()).onSnapshot(snap => {
+                let egrHoy = 0;
+                snap.forEach(doc => egrHoy += Number(doc.data().monto));
+                actualizarBalances(null, egrHoy);
+            });
+        }
+
+        function actualizarBalances(i, e) {
+            if(i !== null) window.ingGlobal = i;
+            if(e !== null) window.egrGlobal = e;
+            const total = (window.ingGlobal || 0) - (window.egrGlobal || 0);
+            document.getElementById("m-ingresos").innerText = "S/. " + Math.floor(window.ingGlobal || 0);
+            document.getElementById("m-gastos").innerText = "S/. " + Math.floor(window.egrGlobal || 0);
+            document.getElementById("m-total").innerText = "S/. " + Math.floor(total);
+            document.getElementById("m-total").style.color = total >= 0 ? "green" : "red";
+        }
+
+        // --- LÓGICA DE ESCÁNER ---
+        function toggleScanner() {
+            const div = document.getElementById('reader');
+            if(div.style.display === 'none') {
+                div.style.display = 'block';
+                html5QrCode = new Html5Qrcode("reader");
+                html5QrCode.start({ facingMode: "environment" }, { fps: 10, qrbox: 250 },
+                    (decodedText) => {
+                        alert("Código detectado: " + decodedText);
+                        pararScanner();
+                    }
+                );
+            } else { pararScanner(); }
+        }
+        function pararScanner() {
+            if(html5QrCode) html5QrCode.stop().then(() => { document.getElementById('reader').style.display='none'; });
+        }
+
+        // --- FICHA E IMAGEN ---
+        async function abrirFicha(id) {
+            pacienteSeleccionadoId = id;
+            const doc = await db.collection("pacientes").doc(id).get();
+            const p = doc.data();
+            document.getElementById("f-nombre").innerText = p.nombre;
+            
+            // Mostrar imagen si existe
+            const imgEl = document.getElementById("f-foto");
+            if(p.fotoUrl) { imgEl.src = p.fotoUrl; imgEl.style.display = "block"; }
+            else { imgEl.style.display = "none"; }
+
+            const saldo = p.costoTotal - p.adelanto;
+            document.getElementById("f-saldos").innerHTML = `TOTAL: S/. ${p.costoTotal.toFixed(0)} | PAGADO: S/. ${p.adelanto.toFixed(0)} <br> SALDO: S/. ${saldo.toFixed(0)}`;
+            
+            // Cargar Historial
+            const histSnap = await db.collection("pacientes").doc(id).collection("history").orderBy("fecha", "desc").get();
+            const hLista = document.getElementById("historial-lista");
+            hLista.innerHTML = "";
+            histSnap.forEach(h => {
+                hLista.innerHTML += `<div class="historia-item"><b>${h.data().fecha}:</b> ${h.data().nota}</div>`;
+            });
+
+            document.getElementById("modalFicha").style.display = "block";
+        }
+
+        async function subirImagen() {
+            const file = document.getElementById("inputFoto").files[0];
+            if(!file) return;
+            
+            const ref = storage.ref(`fotos_pacientes/${pacienteSeleccionadoId}_${Date.now()}`);
+            const task = ref.put(file);
+            
+            task.on('state_changed', null, (err) => alert("Error al subir"), async () => {
+                const url = await task.snapshot.ref.getDownloadURL();
+                // GUARDAR AUTOMÁTICAMENTE en el paciente
+                await db.collection("pacientes").doc(pacienteSeleccionadoId).update({ fotoUrl: url });
+                document.getElementById("f-foto").src = url;
+                document.getElementById("f-foto").style.display = "block";
+                alert("Foto guardada con éxito");
+            });
+        }
+
+        async function guardarHistoria() {
+            const nota = document.getElementById("nuevaNota").value;
+            if(!nota) return;
+            await db.collection("pacientes").doc(pacienteSeleccionadoId).collection("history").add({
+                nota: nota, fecha: getHoy()
+            });
+            document.getElementById("nuevaNota").value = "";
+            abrirFicha(pacienteSeleccionadoId);
+        }
+
+        function cerrarModal() { document.getElementById("modalFicha").style.display = "none"; pararScanner(); }
+    </script>
+</body>
+</html>
